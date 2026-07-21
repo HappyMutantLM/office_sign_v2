@@ -9,5 +9,11 @@
 #define EPD_MISO_PIN   D9   
 #define EPD_MOSI_PIN   D10
 
-// 1 = Re-enable actual hardware busy polling now that setup sequence is safe
+// TTP223 Touch Sensor Signal Wire -> Connect to D4 (GPIO4)
+#define TOUCH_WAKE_PIN GPIO_NUM_4
+
+// Duration (in seconds) to keep web server active on touch wake before sleeping
+#define WEB_AWAKE_TIMEOUT_SEC 180
+
+// 0 = Software safety delays (silences hardware polling timeouts)
 #define EPD_BUSY_POLLING_ENABLED 0

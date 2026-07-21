@@ -7,7 +7,6 @@
 #include <qrcode.h> 
 #include "config.h"
 
-// Declare a pointer instead of an uninitialized global object
 GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT>* display = nullptr;
 
 static const char* HEADER_NAME_TITLE = "Leila Mureebe, MD — CHIO"; 
@@ -29,8 +28,6 @@ void displayInit() {
   );
 
   display->init(0, /*initial=*/true, /*reset_duration=*/20, /*pulldown_rst_mode=*/false);
-  
-  // Explicitly ensure invertDisplay is completely off
   display->invertDisplay(false); 
   display->setRotation(0); 
 }
@@ -47,7 +44,6 @@ static void drawQRCode(const String& url, int originX, int originY, int moduleSi
   for (uint8_t y = 0; y < qrcode.size; y++) {
     for (uint8_t x = 0; x < qrcode.size; x++) {
       if (qrcode_getModule(&qrcode, x, y)) {
-        // SWAPPED: Use GxEPD_WHITE to draw the black QR pixels on this inverted panel layout
         display->fillRect(
           originX + x * moduleSize,
           originY + y * moduleSize,
@@ -68,19 +64,19 @@ void displayShowStatus(const Status& s, String qrURL) {
   display->setFullWindow();
   display->firstPage();
   do {
-    // 1. SWAPPED: Force fill the background with GxEPD_BLACK to get a beautiful white physical background
+    // Fill canvas background
     display->fillScreen(GxEPD_BLACK); 
 
-    // 2. SWAPPED: Set foreground text color to WHITE (renders as black ink) and background to BLACK (renders as white canvas)
+    // Set text color mapping
     display->setTextColor(GxEPD_WHITE, GxEPD_BLACK); 
     
-    // Name/title header
+    // Header
     display->setFont(&FreeSansBold9pt7b);
     display->setCursor(10, 20);
     display->print(HEADER_NAME_TITLE);
-    display->drawLine(0, 28, 400, 28, GxEPD_WHITE); // SWAPPED: Draw line with GxEPD_WHITE for black ink
+    display->drawLine(0, 28, 400, 28, GxEPD_WHITE);
 
-    // Big status headline
+    // Headline
     display->setFont(&FreeSansBold18pt7b);
     display->setCursor(10, 100);
     display->print(s.headline);
@@ -90,18 +86,25 @@ void displayShowStatus(const Status& s, String qrURL) {
     display->setCursor(10, 130);
     display->print(s.subtext);
 
-    // QR code + instructions conditional block
+    // QR Code rendering block
     if (s.allowMessage && qrURL.length() > 0) {
       String fullURL = "http://" + qrURL + "/leave-message";
       drawQRCode(fullURL, 270, 150, 3);
 
-      display->setTextColor(GxEPD_WHITE, GxEPD_BLACK); // SWAPPED
+      display->setTextColor(GxEPD_WHITE, GxEPD_BLACK);
       display->setFont(&FreeSans9pt7b);
       display->setCursor(255, 280);
       display->print("Scan to leave");
       display->setCursor(255, 295);
       display->print("a message");
     }
+
+    // Touch instruction line at bottom
+    display->drawLine(0, 270, 240, 270, GxEPD_WHITE);
+    display->setFont(&FreeSans9pt7b);
+    display->setCursor(10, 288);
+    display->print("[ TAP TOUCH PAD TO WAKE ]");
+
   } while (display->nextPage());
 }
 

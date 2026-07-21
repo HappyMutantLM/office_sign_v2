@@ -9,15 +9,15 @@ struct Status {
 };
 
 static const Status STATUS_LIST[] = {
-  { "online",     "ONLINE",               "Available - stop by",        false }, // No QR
-  { "compiling",  "COMPILING...",         "Do not interrupt",           true  }, // QR Active
-  { "meeting",    "IN THE MATRIX",        "In a meeting",               true  }, // QR Active
-  { "dnd",        "DO NOT DISTURB",       "Critical process running",   true  }, // QR Active
-  { "away",       "404",                  "Human not found",            true  }, // QR Active
-  { "lunch",      "REFUELING",            "Out to lunch",               false }, // No QR
-  { "open",       "PORT OPEN",            "Come on in!",                false }, // No QR
-  { "eod",        "CORE DUMPED",   "Gone for the day",           true  }, // QR Active
+  { "online",     "ONLINE",               "Available - stop by",        false },
+  { "compiling",  "COMPILING...",         "Do not interrupt",           true  },
+  { "meeting",    "IN THE MATRIX",        "In a meeting",               true  },
+  { "dnd",        "DO NOT DISTURB",       "Critical process running",   true  },
+  { "away",       "404",                  "Human not found",            true  },
+  { "lunch",      "REFUELING",            "Out to lunch",               false },
+  { "open",       "PORT OPEN",            "Come on in!",                false },
+  { "eod",        "CORE DUMPED",          "Gone for the day",           true  },
 };
 
-static const int STATUS_COUNT = sizeof(STATUS_LIST) / sizeof(Status); // cite: 13
-extern RTC_DATA_ATTR int currentStatusIndex; // cite: 13
+static const int STATUS_COUNT = sizeof(STATUS_LIST) / sizeof(Status); 
+extern RTC_DATA_ATTR int currentStatusIndex;

@@ -8,9 +8,6 @@
 #include "storage.h"
 #include "secrets.h" 
 
-#define AWAKE_TIMEOUT_MS 120000  
-#define FORCE_REFRESH_HOURS 24   
-
 RTC_DATA_ATTR static time_t lastRefreshEpoch = 0;
 RTC_DATA_ATTR int currentStatusIndex = 0;
 
@@ -49,7 +46,15 @@ void goToSleep() {
     WiFi.mode(WIFI_OFF);
   }
   displaySleep(); 
-  esp_sleep_enable_timer_wakeup(30ULL * 60 * 1000000); 
+
+  // Enable TTP223 capacitive touch pad as the wake trigger
+  esp_sleep_enable_ext1_wakeup(1ULL << TOUCH_WAKE_PIN, ESP_EXT1_WAKEUP_ANY_HIGH);
+
+  // Safety timer wakeup (24-hour baseline sync)
+  esp_sleep_enable_timer_wakeup(24ULL * 3600 * 1000000); 
+
+  Serial.println("Entering deep sleep. Tap touch sensor to wake...");
+  Serial.flush();
   esp_deep_sleep_start();
 }
 
@@ -60,8 +65,10 @@ void renderCurrentStatus(bool showQR) {
 
 void setup() {
   Serial.begin(115200);
-  delay(1000); // Give Serial monitor a moment to catch up
+  delay(1000); 
   Serial.println("\n--- BOOTING SIGN ---");
+
+  pinMode(TOUCH_WAKE_PIN, INPUT);
   
   Serial.print("Initializing Storage... ");
   storageInit(); 
@@ -73,34 +80,20 @@ void setup() {
 
   wakeStart = millis();
 
-  Serial.print("Drawing initial status screen... ");
-  renderCurrentStatus(false);
-  Serial.println("Done.");
-
   Serial.print("Connecting to WiFi... ");
   connectWiFi();
-  // loop won't proceed if connectWiFi hung, but we printed inside it[span_6](start_span)[span_6](end_span)
-  
+
+  // Draw current status with web link if Wi-Fi succeeded
+  Serial.print("Drawing status screen... ");
+  renderCurrentStatus(wifiActive);
+  Serial.println("Done.");
+
   if (wifiActive) {
-    Serial.print("Starting mDNS... ");
-    if (!mdnsStarted) {
-      if (MDNS.begin("doorsign")) {
-        Serial.println("mDNS success (http://doorsign.local)");
-        mdnsStarted = true;
-      } else {
-        Serial.println("mDNS failed");
-      }
-    }
-
-    Serial.print("Configuring NTP Time Sync... ");
-    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-    Serial.println("Done.");
-
     Serial.print("Starting Async Web Server... ");
     startWebServer();
     Serial.println("Web Server Online!");
   } else {
-    Serial.println("WiFi connection failed, skipping network services.");
+    Serial.println("WiFi connection failed, offline mode.");
   }
 
   lastRefreshEpoch = time(nullptr);
@@ -108,21 +101,23 @@ void setup() {
 }
 
 void loop() {
+  // Catch incoming HTTP requests from phone
   if (wifiActive && webserverHasStatusChange()) {
     currentStatusIndex = webserverConsumeStatusChange();
     renderCurrentStatus(true); 
-    wakeStart = millis(); 
+    wakeStart = millis(); // Reset active timer on interaction
   }
 
-  // Only run the 24h refresh calculation if the time system has actually synced
+  // Safe 24-hour maintenance refresh
   if (time(nullptr) > 100000) { 
-    if (time(nullptr) - lastRefreshEpoch > FORCE_REFRESH_HOURS * 3600) {
+    if (time(nullptr) - lastRefreshEpoch > (24 * 3600)) {
       renderCurrentStatus(wifiActive);
       lastRefreshEpoch = time(nullptr);
     }
   }
 
-  if (millis() - wakeStart > AWAKE_TIMEOUT_MS) {
+  // Enter deep sleep once active timeout window expires
+  if (millis() - wakeStart > ((unsigned long)WEB_AWAKE_TIMEOUT_SEC * 1000)) {
     goToSleep();
   }
 
