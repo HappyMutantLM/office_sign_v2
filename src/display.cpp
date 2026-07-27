@@ -27,7 +27,7 @@ void displayInit() {
     GxEPD2_420_GDEY042T81(EPD_CS_PIN, EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_POLLING_ENABLED ? EPD_BUSY_PIN : -1)
   );
 
-  display->init(0, /*initial=*/true, /*reset_duration=*/20, /*pulldown_rst_mode=*/false);
+  display->init(4000000, /*initial=*/false, /*reset_duration=*/40, /*pulldown_rst_mode=*/false);
   display->invertDisplay(false); 
   display->setRotation(0); 
 }
