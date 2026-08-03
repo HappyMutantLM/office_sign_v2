@@ -9,8 +9,9 @@
 #define EPD_MISO_PIN   D9   
 #define EPD_MOSI_PIN   D10
 
-// TTP223 Touch Sensor Signal Wire -> Connect to D4 (GPIO4)
-#define TOUCH_WAKE_PIN GPIO_NUM_4
+// TTP223 Touch Sensor Signal Wire -> Connect to D4 (GPIO5 on XIAO ESP32-S3)
+// NOTE: XIAO Dn labels != GPIO numbers. D3=GPIO4 (EPD BUSY), D4=GPIO5.
+#define TOUCH_WAKE_PIN GPIO_NUM_5
 
 // Duration (in seconds) to keep web server active on touch wake before sleeping
 #define WEB_AWAKE_TIMEOUT_SEC 180
