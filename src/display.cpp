@@ -1,10 +1,10 @@
 #include "display.h"
 #include <SPI.h>
 #include <GxEPD2_BW.h>
-#include <Fonts/FreeSansBold9pt7b.h>
+#include <Fonts/FreeSansBold12pt7b.h>
 #include <Fonts/FreeSansBold18pt7b.h>
 #include <Fonts/FreeSans9pt7b.h>
-#include <qrcode.h> 
+#include <qrcode.h>
 #include "config.h"
 
 GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT>* display = nullptr;
@@ -27,19 +27,37 @@ void displayInit() {
     GxEPD2_420_GDEY042T81(EPD_CS_PIN, EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_POLLING_ENABLED ? EPD_BUSY_PIN : -1)
   );
 
-  display->init(4000000, /*initial=*/false, /*reset_duration=*/40, /*pulldown_rst_mode=*/false);
-  display->invertDisplay(false); 
-  display->setRotation(0); 
+  // NOTE: GxEPD2's init() first argument is a *diagnostic Serial baud rate*
+  // (0 = disabled), not an SPI clock speed - passing 4000000 here didn't
+  // actually configure the SPI bus and risked reconfiguring Serial out from
+  // under the USB-CDC debug output. SPI speed for this panel is handled
+  // internally by the driver; leave this disabled.
+  display->init(0, /*initial=*/false, /*reset_duration=*/40, /*pulldown_rst_mode=*/false);
+  display->invertDisplay(false);
+  display->setRotation(0);
 }
 
 static void drawQRCode(const String& url, int originX, int originY, int moduleSize) {
   QRCode qrcode;
-  uint8_t qrcodeData[qrcode_getBufferSize(4)]; 
+  uint8_t qrcodeData[qrcode_getBufferSize(4)];
 
   if (qrcode_initText(&qrcode, qrcodeData, 4, ECC_LOW, url.c_str()) != 0) {
     Serial.println("QR code generation failed - URL too long for version 4");
     return;
   }
+
+  // Give the QR its own normal-polarity patch (black modules on white),
+  // with a one-module quiet zone, independent of the sign's dark theme.
+  // Otherwise the modules end up rendered white-on-black, which plenty of
+  // scanner apps fail to read.
+  int sizePx = qrcode.size * moduleSize;
+  display->fillRect(
+    originX - moduleSize,
+    originY - moduleSize,
+    sizePx + moduleSize * 2,
+    sizePx + moduleSize * 2,
+    GxEPD_WHITE
+  );
 
   for (uint8_t y = 0; y < qrcode.size; y++) {
     for (uint8_t x = 0; x < qrcode.size; x++) {
@@ -49,7 +67,7 @@ static void drawQRCode(const String& url, int originX, int originY, int moduleSi
           originY + y * moduleSize,
           moduleSize,
           moduleSize,
-          GxEPD_WHITE
+          GxEPD_BLACK
         );
       }
     }
@@ -71,10 +89,10 @@ void displayShowStatus(const Status& s, String qrURL) {
     display->setTextColor(GxEPD_WHITE, GxEPD_BLACK); 
     
     // Header
-    display->setFont(&FreeSansBold9pt7b);
-    display->setCursor(10, 20);
+    display->setFont(&FreeSansBold12pt7b);
+    display->setCursor(10, 24);
     display->print(HEADER_NAME_TITLE);
-    display->drawLine(0, 28, 400, 28, GxEPD_WHITE);
+    display->drawLine(0, 34, 400, 34, GxEPD_WHITE);
 
     // Headline
     display->setFont(&FreeSansBold18pt7b);
@@ -98,12 +116,6 @@ void displayShowStatus(const Status& s, String qrURL) {
       display->setCursor(255, 295);
       display->print("a message");
     }
-
-    // Touch instruction line at bottom
-    display->drawLine(0, 270, 240, 270, GxEPD_WHITE);
-    display->setFont(&FreeSans9pt7b);
-    display->setCursor(10, 288);
-    display->print("[ TAP TOUCH PAD TO WAKE ]");
 
   } while (display->nextPage());
 }

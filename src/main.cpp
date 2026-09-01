@@ -8,7 +8,6 @@
 #include "storage.h"
 #include "secrets.h" 
 
-RTC_DATA_ATTR static time_t lastRefreshEpoch = 0;
 RTC_DATA_ATTR int currentStatusIndex = 0;
 
 unsigned long wakeStart = 0;
@@ -45,7 +44,15 @@ void goToSleep() {
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
   }
-  displaySleep(); 
+  displaySleep();
+
+  // ext1 wakeup is level-triggered at the moment sleep is entered: if the
+  // pad is still being held HIGH right now, we'd wake right back up
+  // immediately. Wait (briefly, with a cap) for it to release first.
+  unsigned long releaseWaitStart = millis();
+  while (digitalRead(TOUCH_WAKE_PIN) == HIGH && millis() - releaseWaitStart < 5000) {
+    delay(20);
+  }
 
   // Enable TTP223 capacitive touch pad as the wake trigger
   esp_sleep_enable_ext1_wakeup(1ULL << TOUCH_WAKE_PIN, ESP_EXT1_WAKEUP_ANY_HIGH);
@@ -96,7 +103,6 @@ void setup() {
     Serial.println("WiFi connection failed, offline mode.");
   }
 
-  lastRefreshEpoch = time(nullptr);
   Serial.println("--- SETUP COMPLETE, ENTERING LOOP ---");
 }
 
@@ -108,13 +114,17 @@ void loop() {
     wakeStart = millis(); // Reset active timer on interaction
   }
 
-  // Safe 24-hour maintenance refresh
-  if (time(nullptr) > 100000) { 
-    if (time(nullptr) - lastRefreshEpoch > (24 * 3600)) {
-      renderCurrentStatus(wifiActive);
-      lastRefreshEpoch = time(nullptr);
-    }
-  }
+  // NOTE: no in-loop "24h maintenance refresh" here anymore. It was dead
+  // code in practice - lastRefreshEpoch was reset every setup(), and the
+  // device always sleeps within WEB_AWAKE_TIMEOUT_SEC, so 24h of elapsed
+  // time could never accumulate inside a single loop() session. The daily
+  // refresh is already guaranteed independently by the 24h deep-sleep timer
+  // wakeup in goToSleep(), which forces a reboot -> setup() -> unconditional
+  // renderCurrentStatus() every 24 hours regardless of touch activity.
+  // It also used the same naive "time(nullptr) > 100000" heuristic that the
+  // comment in storage.cpp's currentTimestamp() already explains is unsafe
+  // (drifts past that threshold after ~27.7h of un-synced free-running time)
+  // - getLocalTime() there is the correct way to check for a real NTP sync.
 
   // Enter deep sleep once active timeout window expires
   if (millis() - wakeStart > ((unsigned long)WEB_AWAKE_TIMEOUT_SEC * 1000)) {
